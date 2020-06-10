@@ -106,7 +106,8 @@ export interface InstancedAppState {
 		commit: string;
 		releaseId: number;
 		name: string;
-		services: Service[];
+		source: string;
+		services: Dictionary<Service>;
 		volumes: Dictionary<Volume>;
 		networks: Dictionary<Network>;
 	};
