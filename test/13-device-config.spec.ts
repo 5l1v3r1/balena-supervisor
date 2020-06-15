@@ -216,6 +216,7 @@ foobaz=bar\n\
 	it('returns default configuration values', function () {
 		const conf = this.deviceConfig.getDefaults();
 		return expect(conf).to.deep.equal({
+			HOST_FIREWALL_MODE: 'off',
 			SUPERVISOR_VPN_CONTROL: 'true',
 			SUPERVISOR_POLL_INTERVAL: '60000',
 			SUPERVISOR_LOCAL_MODE: 'false',

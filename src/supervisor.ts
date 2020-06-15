@@ -13,6 +13,8 @@ import constants = require('./lib/constants');
 import log from './lib/supervisor-console';
 import version = require('./lib/supervisor-version');
 
+import * as firewall from './lib/firewall';
+
 const startupConfigFields: config.ConfigKey[] = [
 	'uuid',
 	'listenPort',
@@ -70,6 +72,9 @@ export class Supervisor {
 			deviceType: await config.get('deviceType'),
 			l4tVersion: await osRelease.getL4tVersion(),
 		});
+
+		log.info('Starting firewall');
+		await firewall.initialised;
 
 		log.debug('Starting api binder');
 		await this.apiBinder.initClient();
