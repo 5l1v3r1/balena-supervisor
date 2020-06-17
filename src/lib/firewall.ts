@@ -1,11 +1,11 @@
 import * as _ from 'lodash';
 
-import * as config from '../../config/index';
-import * as constants from '../constants';
+import * as config from '../config/index';
+import * as constants from './constants';
 import * as iptables from './iptables';
-import { log } from '../supervisor-console';
+import { log } from './supervisor-console';
 
-import * as dbFormat from '../../device-state/db-format';
+import * as dbFormat from '../device-state/db-format';
 
 export const initialised = (async () => {
 	await config.initialized;
@@ -114,7 +114,9 @@ function updateSupervisorAccessRules(
 async function runningHostBoundServices(): Promise<boolean> {
 	const apps = await dbFormat.getApps();
 
-	return _(apps).some((app) => _(app.services).some((svc) => svc.config.networkMode === 'host'));
+	return _(apps).some((app) =>
+		_(app.services).some((svc) => svc.config.networkMode === 'host'),
+	);
 }
 
 async function applyFirewall(
@@ -150,7 +152,7 @@ export async function applyFirewallMode(mode: string) {
 	// only apply valid mode...
 	if (!AllowedModes.includes(mode)) {
 		log.warn(`Invalid firewall mode: ${mode}. Reverting to state: off`);
-		mode = "off";
+		mode = 'off';
 	}
 
 	log.info(`${LOG_PREFIX} Applying firewall mode: ${mode}`);
@@ -165,10 +167,10 @@ export async function applyFirewallMode(mode: string) {
 	const returnIfOff: iptables.Rule | iptables.Rule[] =
 		mode === 'off' || (mode === 'auto' && !isServicesInHostNetworkMode)
 			? {
-				comment: `Firewall disabled (${mode})`,
-				action: '-A',
-				target: 'RETURN',
-			}
+					comment: `Firewall disabled (${mode})`,
+					action: '-A',
+					target: 'RETURN',
+			  }
 			: [];
 
 	// configure the BALENA-FIREWALL chain...
@@ -176,6 +178,7 @@ export async function applyFirewallMode(mode: string) {
 		.forChain(BALENA_FIREWALL_CHAIN, 'filter')
 		.add(prepareChain)
 		.add(returnIfOff)
+		.add(supervisorAccessRules)
 		.add(standardServices)
 		.add(standardPolicy)
 		.apply(ruleAdaptor);
