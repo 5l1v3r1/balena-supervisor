@@ -1,11 +1,11 @@
 import * as _ from 'lodash';
 
-import * as config from '../../config/index';
-import * as constants from '../constants';
+import * as config from '../config/index';
+import * as constants from './constants';
 import * as iptables from './iptables';
-import { log } from '../supervisor-console';
+import { log } from './supervisor-console';
 
-import * as dbFormat from '../../device-state/db-format';
+import * as dbFormat from '../device-state/db-format';
 
 export const initialised = (async () => {
 	await config.initialized;
@@ -13,14 +13,14 @@ export const initialised = (async () => {
 
 	// apply firewall whenever relevant config changes occur...
 	config.on('change', async ({ firewallMode, localMode }) => {
-		if (firewallMode || localMode !== undefined) {
+		if (firewallMode || localMode != null) {
 			applyFirewall({ firewallMode, localMode });
 		}
 	});
 })();
 
 const BALENA_FIREWALL_CHAIN = 'BALENA-FIREWALL';
-const LOG_PREFIX = '\u{1F525}';
+const LOG_PREFIX = '🔥';
 
 const prepareChain: iptables.Rule[] = [
 	{
@@ -82,39 +82,33 @@ const standardPolicy: iptables.Rule[] = [
 let supervisorAccessRules: iptables.Rule[] = [];
 function updateSupervisorAccessRules(
 	localMode: boolean,
-	allowedInterfaces: string[],
+	interfaces: string[],
 	port: number,
 ) {
 	supervisorAccessRules = [];
 
-	// if localMode then we're listening on ALL interfaces, otherwise we listen only on the allowed ones...
-	if (localMode) {
+	// if localMode then add a dummy interface placeholder, otherwise add each interface...
+	const matchesIntf = localMode
+		? [[]]
+		: interfaces.map((intf) => [`-i ${intf}`]);
+	matchesIntf.forEach((intf) =>
 		supervisorAccessRules.push({
 			comment: 'Supervisor API',
 			action: '-A',
 			proto: 'tcp',
-			matches: [`--dport ${port}`],
+			matches: [`--dport ${port}`, ...intf],
 			target: 'ACCEPT',
 			applyIfExists: false,
-		});
-	} else {
-		allowedInterfaces.forEach((intf) => {
-			supervisorAccessRules.push({
-				comment: 'Supervisor API',
-				action: '-A',
-				proto: 'tcp',
-				matches: [`--dport ${port}`, `-i ${intf}`],
-				target: 'ACCEPT',
-				applyIfExists: false,
-			});
-		});
-	}
+		}),
+	);
 }
 
 async function runningHostBoundServices(): Promise<boolean> {
 	const apps = await dbFormat.getApps();
 
-	return _(apps).some((app) => _(app.services).some((svc) => svc.config.networkMode === 'host'));
+	return _(apps).some((app) =>
+		_(app.services).some((svc) => svc.config.networkMode === 'host'),
+	);
 }
 
 async function applyFirewall(
@@ -144,13 +138,13 @@ async function applyFirewall(
 	await exports.applyFirewallMode(firewallMode ?? '');
 }
 
-export const AllowedModes = ['on', 'off', 'auto'];
+export const ALLOWED_MODES = ['on', 'off', 'auto'];
 
 export async function applyFirewallMode(mode: string) {
 	// only apply valid mode...
-	if (!AllowedModes.includes(mode)) {
+	if (!ALLOWED_MODES.includes(mode)) {
 		log.warn(`Invalid firewall mode: ${mode}. Reverting to state: off`);
-		mode = "off";
+		mode = 'off';
 	}
 
 	log.info(`${LOG_PREFIX} Applying firewall mode: ${mode}`);
@@ -165,19 +159,20 @@ export async function applyFirewallMode(mode: string) {
 	const returnIfOff: iptables.Rule | iptables.Rule[] =
 		mode === 'off' || (mode === 'auto' && !isServicesInHostNetworkMode)
 			? {
-				comment: `Firewall disabled (${mode})`,
-				action: '-A',
-				target: 'RETURN',
-			}
+					comment: `Firewall disabled (${mode})`,
+					action: '-I',
+					target: 'RETURN',
+			  }
 			: [];
 
 	// configure the BALENA-FIREWALL chain...
 	await iptables
 		.forChain(BALENA_FIREWALL_CHAIN, 'filter')
 		.add(prepareChain)
-		.add(returnIfOff)
+		.add(supervisorAccessRules)
 		.add(standardServices)
 		.add(standardPolicy)
+		.add(returnIfOff)
 		.apply(ruleAdaptor);
 
 	// add the jump to the firewall table...
@@ -191,5 +186,5 @@ export async function applyFirewallMode(mode: string) {
 		.apply(ruleAdaptor);
 
 	// all done!
-	log.success('Firewall mode applied');
+	log.success(`${LOG_PREFIX} Firewall mode applied`);
 }

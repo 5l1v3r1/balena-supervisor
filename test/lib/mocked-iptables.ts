@@ -2,7 +2,7 @@ import _ = require('lodash');
 import { expect } from 'chai';
 
 import * as firewall from '../../src/lib/firewall';
-import * as iptables from '../../src/lib/firewall/iptables';
+import * as iptables from '../../src/lib/iptables';
 import { EventEmitter } from 'events';
 
 class FakeRuleAdaptor {
@@ -86,14 +86,23 @@ class FakeRuleAdaptor {
 	public expectRule(testRule: Partial<iptables.Rule>) {
 		return expect(
 			_.some(this.rules, (r) => this.isSameRule(testRule, r)),
-		).to.eq(true, `Rule has not been applied: ${JSON.stringify(testRule)}`);
+		).to.eq(
+			true,
+			`Rule has not been applied: ${JSON.stringify(
+				testRule,
+			)}\n\n${JSON.stringify(this.rules, null, 2)}`,
+		);
 	}
 	public expectNoRule(testRule: Partial<iptables.Rule>) {
 		return expect(
 			_.some(this.rules, (r) => this.isSameRule(testRule, r)),
 		).to.eq(
 			false,
-			`Rule has been applied: ${JSON.stringify(testRule)}`,
+			`Rule has been applied: ${JSON.stringify(testRule)}\n\n${JSON.stringify(
+				this.rules,
+				null,
+				2,
+			)}`,
 		);
 	}
 	public clearHistory() {

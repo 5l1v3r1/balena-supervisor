@@ -1,6 +1,10 @@
 import { spy } from 'sinon';
 import { expect } from 'chai';
 
+import * as Docker from 'dockerode';
+import { docker } from '../src/lib/docker-utils';
+import * as sinon from 'sinon';
+
 import * as config from '../src/config';
 import * as firewall from '../src/lib/firewall';
 import * as iptablesMock from './lib/mocked-iptables';
@@ -11,13 +15,28 @@ import constants = require('../src/lib/constants');
 describe('Host Firewall', function () {
 	let apiEndpoint: string;
 	let listenPort: number;
+	let dockerStub: sinon.SinonStubbedInstance<typeof docker>;
 
-	before(async function () {
-		await firewall.initialised;
+	before(async () => {
+		dockerStub = sinon.stub(docker);
+		dockerStub.listContainers.resolves([]);
+		dockerStub.listImages.resolves([]);
+		dockerStub.getImage.returns({
+			id: 'abcde',
+			inspect: async () => {
+				return {};
+			},
+		} as Docker.Image);
+
 		await targetStateCache.initialized;
+		await firewall.initialised;
 
 		apiEndpoint = await config.get('apiEndpoint');
 		listenPort = await config.get('listenPort');
+	});
+
+	after(async () => {
+		sinon.restore();
 	});
 
 	describe('Basic On/Off operation', () => {
@@ -61,7 +80,7 @@ describe('Host Firewall', function () {
 
 					// expect to return...
 					expectRule({
-						action: '-A',
+						action: '-I',
 						table: 'filter',
 						chain: 'BALENA-FIREWALL',
 						target: 'RETURN',
@@ -73,7 +92,7 @@ describe('Host Firewall', function () {
 
 		it('should respect the HOST_FIREWALL_MODE configuration value: off', async function () {
 			await iptablesMock.whilstMocked(
-				async ({ hasAppliedRules, expectRule, expectNoRule }) => {
+				async ({ hasAppliedRules, expectRule }) => {
 					// set the firewall to be in off mode...
 					await config.set({ firewallMode: 'off' });
 					await hasAppliedRules;
@@ -96,7 +115,7 @@ describe('Host Firewall', function () {
 
 					// expect to return...
 					expectRule({
-						action: '-A',
+						action: '-I',
 						table: 'filter',
 						chain: 'BALENA-FIREWALL',
 						target: 'RETURN',
@@ -131,7 +150,7 @@ describe('Host Firewall', function () {
 
 					// expect to not return...
 					expectNoRule({
-						action: '-A',
+						action: '-I',
 						table: 'filter',
 						chain: 'BALENA-FIREWALL',
 						target: 'RETURN',
@@ -143,7 +162,7 @@ describe('Host Firewall', function () {
 
 		it('should respect the HOST_FIREWALL_MODE configuration value: auto (no services in host-network)', async function () {
 			await iptablesMock.whilstMocked(
-				async ({ hasAppliedRules, expectRule, expectNoRule }) => {
+				async ({ hasAppliedRules, expectRule }) => {
 					await targetStateCache.setTargetApps([
 						{
 							appId: 2,
@@ -193,7 +212,7 @@ describe('Host Firewall', function () {
 
 					// expect to return...
 					expectRule({
-						action: '-A',
+						action: '-I',
 						table: 'filter',
 						chain: 'BALENA-FIREWALL',
 						target: 'RETURN',
@@ -256,7 +275,7 @@ describe('Host Firewall', function () {
 
 					// expect to return...
 					expectNoRule({
-						action: '-A',
+						action: '-I',
 						table: 'filter',
 						chain: 'BALENA-FIREWALL',
 						target: 'RETURN',
@@ -267,7 +286,7 @@ describe('Host Firewall', function () {
 		});
 	});
 
-	describe.skip('Supervisor API access', () => {
+	describe('Supervisor API access', () => {
 		it('should allow access in localmode', async function () {
 			await iptablesMock.whilstMocked(
 				async ({ hasAppliedRules, expectRule }) => {
