@@ -1,4 +1,31 @@
 - commits:
+    - subject: 'firewall: Move existing iptables rules to host firewall'
+      hash: 91a4de017327bf0097945a42f430743d4efa355f
+      body: ''
+      footer:
+        Change-type: patch
+        change-type: patch
+        Signed-off-by: Rich Bayliss <rich@balena.io>
+        signed-off-by: Rich Bayliss <rich@balena.io>
+      author: Rich Bayliss
+    - subject: 'firewall: Add Host Firewall functionality'
+      hash: d9b672c31cf33da9f800a40fe1d4788c9d4d5a8d
+      body: |
+        Controlled by BALENA_HOST_FIREWALL_MODE, the firewall can
+        either be 'on' or 'off'.
+
+        - In the 'off' state, all traffic is allowed.
+        - In the 'on' state, only traffic for the core services provided
+          by Balena is allowed.
+      footer:
+        Change-type: patch
+        change-type: patch
+        Signed-off-by: Rich Bayliss <rich@balena.io>
+        signed-off-by: Rich Bayliss <rich@balena.io>
+      author: Rich Bayliss
+  version: 11.8.5
+  date: 2020-06-24T12:34:29.962Z
+- commits:
     - subject: 'state: Report device MAC address to the API'
       hash: 1b91ef3405d1d2013cbdd6381ed69256c6432d18
       body: |
